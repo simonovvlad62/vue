@@ -1,15 +1,19 @@
 <template>
   <div>
+
+<center><div><p><h1><b>Данные HyperPC</b></h1></p></div></center>
+
     <div class="nav2">
       <button type="button" class="btn btn-primary">
         <router-link to="/contacts">Наши контакты</router-link>
       </button>
-      <button type="button" class="btn btn-danger">
-        <router-link to="/login">Войти в систему</router-link>
-      </button>
       <button type="button" class="btn btn-success" @click="showData = !showData">
         {{ showData ? 'Скрыть данные' : 'Показать все данные' }}
       </button>
+      <button type="button" class="btn btn-danger">
+        <router-link to="/login">Войти в систему</router-link>
+      </button>
+
     </div>
 
     <!-- Отладочная информация -->
@@ -17,44 +21,6 @@
       <h6>📊 Статус загрузки:</h6>
       <p>Заказы: {{ orders.length }} | Клиенты: {{ clients.length }} | Компьютеры: {{ computers.length }}</p>
       <p>Сотрудники: {{ employees.length }} | Услуги: {{ services.length }} | Товары: {{ products.length }}</p>
-    </div>
-
-    <!-- Статистика -->
-    <div v-if="stats" class="stats-container mt-4">
-      <div class="row justify-content-center">
-        <div class="col-md-2">
-          <div class="card text-white bg-primary mb-3">
-            <div class="card-body">
-              <h5 class="card-title">{{ stats.totalOrders }}</h5>
-              <p class="card-text">Всего заказов</p>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-2">
-          <div class="card text-white bg-success mb-3">
-            <div class="card-body">
-              <h5 class="card-title">{{ stats.totalRevenue }} ₽</h5>
-              <p class="card-text">Общий доход</p>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-2">
-          <div class="card text-white bg-warning mb-3">
-            <div class="card-body">
-              <h5 class="card-title">{{ stats.totalClients }}</h5>
-              <p class="card-text">Клиентов</p>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-2">
-          <div class="card text-white bg-info mb-3">
-            <div class="card-body">
-              <h5 class="card-title">{{ stats.totalEmployees }}</h5>
-              <p class="card-text">Сотрудников</p>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- Все 6 таблиц из базы данных -->
@@ -168,7 +134,6 @@
                 <th>Видеокарта</th>
                 <th>Процессор</th>
                 <th>Материнская плата</th>
-                <th>Оперативная память</th>
               </tr>
             </thead>
             <tbody>
@@ -186,7 +151,6 @@
                 <td><small>{{ computer.видеокарта }}</small></td>
                 <td><small>{{ computer.процессор }}</small></td>
                 <td><small>{{ computer.мат_плата }}</small></td>
-                <td><small>{{ computer.оперативная_память }}</small></td>
               </tr>
             </tbody>
           </table>
@@ -294,101 +258,213 @@ export default {
     }
   },
   methods: {
-methods: {
-  async loadAllData() {
-    try {
-      console.log('🚀 Загружаем все данные...');
-      await Promise.all([
-        this.loadOrders(),
-        this.loadClients(), 
-        this.loadComputers(),
-        this.loadEmployees(),
-        this.loadServices(),
-        this.loadProducts()
-      ]);
-      console.log('✅ Все таблицы загружены!');
-    } catch (error) {
-      console.error('❌ Ошибка загрузки данных:', error);
-    }
-  },
+    getPerformancePercent(fps) {
+      const maxFps = 300;
+      return Math.min((fps / maxFps) * 100, 100);
+    },
+    
+    getServiceBadgeClass(serviceType) {
+      const classes = {
+        'Моддинг и кастомизация': 'bg-purple',
+        'Тех. обслуживание': 'bg-success',
+        'Апгрейд центр': 'bg-danger',
+        'Тех. Обслуживание': 'bg-success'
+      };
+      return classes[serviceType] || 'bg-secondary';
+    },
+    
+    getProductBadgeClass(productType) {
+      const classes = {
+        'Водяное охлаждение': 'bg-info',
+        'Монитор': 'bg-primary',
+        'Видеокарта': 'bg-warning',
+        'Процессор': 'bg-danger'
+      };
+      return classes[productType] || 'bg-secondary';
+    },
 
-  async loadEmployees() {
-    try {
-      console.log('👨‍💼 Загружаем сотрудников...');
-      const response = await fetch('http://localhost:3002/api/employees');
-      console.log('Employees Response:', response);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+    async loadAllData() {
+      try {
+        console.log('🚀 Загружаем все данные...');
+        await Promise.all([
+          this.loadOrders(),
+          this.loadClients(),
+          this.loadComputers(),
+          this.loadEmployees(),
+          this.loadServices(),
+          this.loadProducts()
+        ]);
+        console.log('✅ Все таблицы загружены!');
+        console.log('📊 Итоги:', {
+          orders: this.orders.length,
+          clients: this.clients.length,
+          computers: this.computers.length,
+          employees: this.employees.length,
+          services: this.services.length,
+          products: this.products.length
+        });
+      } catch (error) {
+        console.error('❌ Ошибка загрузки данных:', error);
       }
-      
-      const data = await response.json();
-      console.log('👨‍💼 Данные сотрудников:', data);
-      this.employees = data.data || [];
-      console.log('👨‍💼 Сотрудники загружены:', this.employees.length);
-      
-      if (this.employees.length === 0) {
-        console.warn('⚠️ Таблица сотрудников пустая!');
-      }
-    } catch (error) {
-      console.error('❌ Ошибка загрузки сотрудников:', error);
-      this.employees = [];
-    }
-  },
+    },
 
-  async loadServices() {
-    try {
-      console.log('🔧 Загружаем услуги...');
-      const response = await fetch('http://localhost:3002/api/services');
-      console.log('Services Response:', response);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+    async loadStats() {
+      try {
+        console.log('📊 Загружаем статистику...');
+        const response = await fetch('/api/stats');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        this.stats = await response.json();
+        console.log('📊 Статистика загружена:', this.stats);
+      } catch (error) {
+        console.error('❌ Ошибка загрузки статистики:', error);
       }
-      
-      const data = await response.json();
-      console.log('🔧 Данные услуг:', data);
-      this.services = data.data || [];
-      console.log('🔧 Услуги загружены:', this.services.length);
-      
-      if (this.services.length === 0) {
-        console.warn('⚠️ Таблица услуг пустая!');
-      }
-    } catch (error) {
-      console.error('❌ Ошибка загрузки услуг:', error);
-      this.services = [];
-    }
-  },
+    },
 
-  async loadProducts() {
-    try {
-      console.log('🛒 Загружаем товары...');
-      const response = await fetch('http://localhost:3001/api/products');
-      console.log('Products Response:', response);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+    async loadOrders() {
+      try {
+        console.log('📦 Загружаем заказы...');
+        const response = await fetch('/api/orders');
+        console.log('📦 Orders Response:', response.status, response.ok);
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        console.log('📦 Orders Data:', data);
+        this.orders = data.data || [];
+        console.log('📦 Заказы загружены:', this.orders.length);
+        
+        if (this.orders.length > 0) {
+          console.log('📦 Первый заказ:', this.orders[0]);
+        }
+      } catch (error) {
+        console.error('❌ Ошибка загрузки заказов:', error);
+        this.orders = [];
       }
-      
-      const data = await response.json();
-      console.log('🛒 Данные товаров:', data);
-      this.products = data.data || [];
-      console.log('🛒 Товары загружены:', this.products.length);
-      
-      if (this.products.length === 0) {
-        console.warn('⚠️ Таблица товаров пустая!');
+    },
+
+    async loadClients() {
+      try {
+        console.log('👥 Загружаем клиентов...');
+        const response = await fetch('/api/clients');
+        console.log('👥 Clients Response:', response.status, response.ok);
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        console.log('👥 Clients Data:', data);
+        this.clients = data.data || [];
+        console.log('👥 Клиенты загружены:', this.clients.length);
+        
+        if (this.clients.length > 0) {
+          console.log('👥 Первый клиент:', this.clients[0]);
+        }
+      } catch (error) {
+        console.error('❌ Ошибка загрузки клиентов:', error);
+        this.clients = [];
       }
-    } catch (error) {
-      console.error('❌ Ошибка загрузки товаров:', error);
-      this.products = [];
+    },
+
+    async loadComputers() {
+      try {
+        console.log('💻 Загружаем компьютеры...');
+        const response = await fetch('/api/computers');
+        console.log('💻 Computers Response:', response.status, response.ok);
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        console.log('💻 Computers Data:', data);
+        this.computers = data.data || [];
+        console.log('💻 Компьютеры загружены:', this.computers.length);
+        
+        if (this.computers.length > 0) {
+          console.log('💻 Первый компьютер:', this.computers[0]);
+        } else {
+          console.warn('⚠️ Таблица компьютеров пустая!');
+        }
+      } catch (error) {
+        console.error('❌ Ошибка загрузки компьютеров:', error);
+        this.computers = [];
+      }
+    },
+
+    async loadEmployees() {
+      try {
+        console.log('👨‍💼 Загружаем сотрудников...');
+        const response = await fetch('/api/employees');
+        console.log('👨‍💼 Employees Response:', response.status, response.ok);
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        console.log('👨‍💼 Employees Data:', data);
+        this.employees = data.data || [];
+        console.log('👨‍💼 Сотрудники загружены:', this.employees.length);
+        
+        if (this.employees.length > 0) {
+          console.log('👨‍💼 Первый сотрудник:', this.employees[0]);
+        } else {
+          console.warn('⚠️ Таблица сотрудников пустая!');
+        }
+      } catch (error) {
+        console.error('❌ Ошибка загрузки сотрудников:', error);
+        this.employees = [];
+      }
+    },
+
+    async loadServices() {
+      try {
+        console.log('🔧 Загружаем услуги...');
+        const response = await fetch('/api/services');
+        console.log('🔧 Services Response:', response.status, response.ok);
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        console.log('🔧 Services Data:', data);
+        this.services = data.data || [];
+        console.log('🔧 Услуги загружены:', this.services.length);
+        
+        if (this.services.length > 0) {
+          console.log('🔧 Первая услуга:', this.services[0]);
+        } else {
+          console.warn('⚠️ Таблица услуг пустая!');
+        }
+      } catch (error) {
+        console.error('❌ Ошибка загрузки услуг:', error);
+        this.services = [];
+      }
+    },
+
+    async loadProducts() {
+      try {
+        console.log('🛒 Загружаем товары...');
+        const response = await fetch('/api/products');
+        console.log('🛒 Products Response:', response.status, response.ok);
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        console.log('🛒 Products Data:', data);
+        this.products = data.data || [];
+        console.log('🛒 Товары загружены:', this.products.length);
+        
+        if (this.products.length > 0) {
+          console.log('🛒 Первый товар:', this.products[0]);
+        } else {
+          console.warn('⚠️ Таблица товаров пустая!');
+        }
+      } catch (error) {
+        console.error('❌ Ошибка загрузки товаров:', error);
+        this.products = [];
+      }
     }
   }
-}
 }
 </script>
 
 <style>
-.nav2 { text-align: center; }
+.nav2 { text-align: center;}
 .btn { margin: 15px; color: white; }
 a { text-decoration: none; color: #ffffff; }
 .stats-container { padding: 0 20px; }
@@ -407,4 +483,8 @@ a { text-decoration: none; color: #ffffff; }
 
 /* Ховер эффекты */
 .table-hover tbody tr:hover { background-color: rgba(0,0,0,0.075); }
+
+/* Блок кнопки показа данных из бд */
+.grbtn2here {margin-top: 70px;} 
+
 </style>

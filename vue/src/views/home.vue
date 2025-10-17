@@ -487,4 +487,5 @@ a { text-decoration: none; color: #ffffff; }
 /* Блок кнопки показа данных из бд */
 .grbtn2here {margin-top: 70px;} 
 
+.btn-success {width: 185px;}
 </style>

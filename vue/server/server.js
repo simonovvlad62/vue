@@ -21,30 +21,81 @@ const db = new sqlite3.Database(dbPath, (err) => {
     console.error('❌ Ошибка подключения к БД:', err.message);
   } else {
     console.log('✅ Подключен к SQLite базе данных');
-    
-    // Проверим таблицы при запуске
-    db.all("SELECT name FROM sqlite_master WHERE type='table'", (err, tables) => {
-      if (err) {
-        console.error('❌ Ошибка проверки таблиц:', err);
-      } else {
-        console.log('📊 Таблицы в базе:', tables.map(t => t.name).join(', '));
-        
-        // Проверим количество записей в каждой таблице
-        tables.forEach(table => {
-          db.get(`SELECT COUNT(*) as count FROM ${table.name}`, (err, row) => {
-            if (!err) {
-              console.log(`   ${table.name}: ${row.count} записей`);
-            }
-          });
-        });
-      }
-    });
   }
 });
 
-// API Routes
+// Вспомогательная функция для построения SQL запросов
+const buildInsertQuery = (table, data) => {
+  const columns = Object.keys(data).join(', ');
+  const placeholders = Object.keys(data).map(() => '?').join(', ');
+  const values = Object.values(data);
+  return { query: `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`, values };
+};
 
-// Получить все заказы
+const buildUpdateQuery = (table, data, whereField) => {
+  const setClause = Object.keys(data).map(key => `${key} = ?`).join(', ');
+  const values = [...Object.values(data), data[whereField]];
+  return { query: `UPDATE ${table} SET ${setClause} WHERE ${whereField} = ?`, values };
+};
+
+// Функция для преобразования названий таблиц
+const getTableName = (apiTable) => {
+  const tableMap = {
+    'orders': 'заказы',
+    'clients': 'клиенты', 
+    'employees': 'сотрудники',
+    'computers': 'компьютер',
+    'services': 'услуги',
+    'products': 'товары'
+  };
+  return tableMap[apiTable] || apiTable;
+};
+
+// Функция для преобразования имен полей (из snake_case в snake_case - БД использует snake_case!)
+const convertFieldNamesToDB = (data, table) => {
+  // В базе данных уже используются snake_case имена, так что просто возвращаем данные
+  return data;
+};
+
+// Функция для обратного преобразования (из БД в snake_case - они уже в snake_case)
+const convertFieldNamesFromDB = (data, table) => {
+  // Данные уже в правильном формате snake_case
+  return data;
+};
+
+// CRUD API Routes
+
+// CREATE - Добавление записей
+app.post('/api/:table', (req, res) => {
+  const { table } = req.params;
+  const dbTable = getTableName(table);
+  let data = req.body;
+  
+  console.log('📥 Получены данные для добавления:', data);
+  
+  // Преобразуем имена полей для БД (они уже в snake_case)
+  data = convertFieldNamesToDB(data, table);
+  
+  console.log('🔄 Данные для БД:', data);
+  
+  const { query, values } = buildInsertQuery(dbTable, data);
+  
+  console.log(`📝 INSERT запрос: ${query}`);
+  console.log(`📊 Значения:`, values);
+  
+  db.run(query, values, function(err) {
+    if (err) {
+      console.error(`❌ Ошибка добавления в ${dbTable}:`, err.message);
+      console.error(`❌ Запрос: ${query}`);
+      res.status(400).json({ error: err.message });
+    } else {
+      console.log(`✅ Добавлена запись в ${dbTable}, ID:`, this.lastID);
+      res.json({ success: true, id: this.lastID });
+    }
+  });
+});
+
+// READ - Получение записей
 app.get('/api/orders', (req, res) => {
   const sql = `SELECT * FROM заказы`;
   db.all(sql, [], (err, rows) => {
@@ -53,12 +104,12 @@ app.get('/api/orders', (req, res) => {
       res.status(400).json({ error: err.message });
       return;
     }
-    console.log('📦 API /orders: возвращено', rows.length, 'записей');
-    res.json({ data: rows });
+    // Преобразуем имена полей из БД
+    const convertedRows = rows.map(row => convertFieldNamesFromDB(row, 'orders'));
+    res.json({ data: convertedRows });
   });
 });
 
-// Получить всех клиентов
 app.get('/api/clients', (req, res) => {
   const sql = `SELECT * FROM клиенты`;
   db.all(sql, [], (err, rows) => {
@@ -67,12 +118,11 @@ app.get('/api/clients', (req, res) => {
       res.status(400).json({ error: err.message });
       return;
     }
-    console.log('👥 API /clients: возвращено', rows.length, 'записей');
-    res.json({ data: rows });
+    const convertedRows = rows.map(row => convertFieldNamesFromDB(row, 'clients'));
+    res.json({ data: convertedRows });
   });
 });
 
-// Получить все компьютеры
 app.get('/api/computers', (req, res) => {
   const sql = `SELECT * FROM компьютер`;
   db.all(sql, [], (err, rows) => {
@@ -81,12 +131,11 @@ app.get('/api/computers', (req, res) => {
       res.status(400).json({ error: err.message });
       return;
     }
-    console.log('💻 API /computers: возвращено', rows.length, 'записей');
-    res.json({ data: rows });
+    const convertedRows = rows.map(row => convertFieldNamesFromDB(row, 'computers'));
+    res.json({ data: convertedRows });
   });
 });
 
-// Получить всех сотрудников
 app.get('/api/employees', (req, res) => {
   const sql = `SELECT * FROM сотрудники`;
   db.all(sql, [], (err, rows) => {
@@ -95,12 +144,11 @@ app.get('/api/employees', (req, res) => {
       res.status(400).json({ error: err.message });
       return;
     }
-    console.log('👨‍💼 API /employees: возвращено', rows.length, 'записей');
-    res.json({ data: rows });
+    const convertedRows = rows.map(row => convertFieldNamesFromDB(row, 'employees'));
+    res.json({ data: convertedRows });
   });
 });
 
-// Получить все услуги
 app.get('/api/services', (req, res) => {
   const sql = `SELECT * FROM услуги`;
   db.all(sql, [], (err, rows) => {
@@ -109,12 +157,11 @@ app.get('/api/services', (req, res) => {
       res.status(400).json({ error: err.message });
       return;
     }
-    console.log('🔧 API /services: возвращено', rows.length, 'записей');
-    res.json({ data: rows });
+    const convertedRows = rows.map(row => convertFieldNamesFromDB(row, 'services'));
+    res.json({ data: convertedRows });
   });
 });
 
-// Получить все товары
 app.get('/api/products', (req, res) => {
   const sql = `SELECT * FROM товары`;
   db.all(sql, [], (err, rows) => {
@@ -123,67 +170,178 @@ app.get('/api/products', (req, res) => {
       res.status(400).json({ error: err.message });
       return;
     }
-    console.log('🛒 API /products: возвращено', rows.length, 'записей');
-    res.json({ data: rows });
+    const convertedRows = rows.map(row => convertFieldNamesFromDB(row, 'products'));
+    res.json({ data: convertedRows });
   });
 });
 
-// Получить статистику
-app.get('/api/stats', (req, res) => {
-  const queries = {
-    totalOrders: 'SELECT COUNT(*) as count FROM заказы',
-    totalRevenue: 'SELECT SUM(стоимость_заказа) as total FROM заказы',
-    totalClients: 'SELECT COUNT(*) as count FROM клиенты',
-    totalEmployees: 'SELECT COUNT(*) as count FROM сотрудники'
+// UPDATE - Обновление записей
+app.put('/api/:table/:id', (req, res) => {
+  const { table, id } = req.params;
+  const dbTable = getTableName(table);
+  let data = req.body;
+  
+  console.log('📥 Получены данные для обновления:', data);
+  
+  // Преобразуем имена полей для БД
+  data = convertFieldNamesToDB(data, table);
+  
+  // Определяем поле для WHERE в зависимости от таблицы
+  const whereFields = {
+    'orders': 'номер_заказа',
+    'clients': 'id_клиента', 
+    'employees': 'паспортные_данные',
+    'computers': 'номер_компьютера',
+    'services': 'номер_услуги',
+    'products': 'номер_товара'
   };
+  
+  const whereField = whereFields[table];
+  if (!whereField) {
+    return res.status(400).json({ error: 'Неизвестная таблица' });
+  }
+  
+  const { query, values } = buildUpdateQuery(dbTable, data, whereField);
+  
+  console.log(`📝 UPDATE запрос: ${query}`);
+  console.log(`📊 Значения:`, values);
+  
+  db.run(query, values, function(err) {
+    if (err) {
+      console.error(`❌ Ошибка обновления в ${dbTable}:`, err.message);
+      console.error(`❌ Запрос: ${query}`);
+      res.status(400).json({ error: err.message });
+    } else {
+      console.log(`✅ Обновлена запись в ${dbTable}, ID:`, id);
+      res.json({ success: true, changes: this.changes });
+    }
+  });
+});
 
-  const results = {};
-  let completed = 0;
+// DELETE - Удаление записей
+app.delete('/api/:table/:id', (req, res) => {
+  const { table, id } = req.params;
+  const dbTable = getTableName(table);
+  
+  // Определяем поле для WHERE в зависимости от таблицы
+  const whereFields = {
+    'orders': 'номер_заказа',
+    'clients': 'id_клиента',
+    'employees': 'паспортные_данные', 
+    'computers': 'номер_компьютера',
+    'services': 'номер_услуги',
+    'products': 'номер_товара'
+  };
+  
+  const whereField = whereFields[table];
+  if (!whereField) {
+    return res.status(400).json({ error: 'Неизвестная таблица' });
+  }
+  
+  const query = `DELETE FROM ${dbTable} WHERE ${whereField} = ?`;
+  
+  console.log(`📝 DELETE запрос: ${query}`);
+  console.log(`🗑️ Удаляем ID:`, id);
+  
+  db.run(query, [id], function(err) {
+    if (err) {
+      console.error(`❌ Ошибка удаления из ${dbTable}:`, err.message);
+      res.status(400).json({ error: err.message });
+    } else {
+      console.log(`✅ Удалена запись из ${dbTable}, ID:`, id);
+      res.json({ success: true, changes: this.changes });
+    }
+  });
+});
 
-  Object.keys(queries).forEach(key => {
-    db.get(queries[key], [], (err, row) => {
-      if (err) {
-        console.error(`❌ Ошибка статистики ${key}:`, err.message);
-        results[key] = 0;
-      } else {
-        results[key] = row.count || row.total || 0;
-      }
-      completed++;
-      if (completed === Object.keys(queries).length) {
-        console.log('📊 Статистика:', results);
-        res.json(results);
-      }
+// Отладочные маршруты
+app.get('/api/debug', (req, res) => {
+  res.json({ 
+    message: 'Сервер работает',
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.get('/api/debug/tables', (req, res) => {
+  db.all("SELECT name FROM sqlite_master WHERE type='table'", [], (err, tables) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    
+    const tableInfo = {};
+    let completed = 0;
+    
+    if (tables.length === 0) {
+      return res.json({ tables: tableInfo });
+    }
+    
+    tables.forEach(table => {
+      const tableName = table.name;
+      db.all(`PRAGMA table_info(${tableName})`, [], (err, columns) => {
+        if (err) {
+          console.error(`❌ Ошибка получения информации о таблице ${tableName}:`, err);
+        } else {
+          tableInfo[tableName] = columns.map(col => ({
+            name: col.name,
+            type: col.type,
+            notnull: col.notnull,
+            pk: col.pk
+          }));
+        }
+        
+        completed++;
+        if (completed === tables.length) {
+          res.json({ tables: tableInfo });
+        }
+      });
     });
   });
 });
 
-// Тестовый endpoint
-app.get('/api/test', (req, res) => {
-  res.json({ 
-    message: '✅ Сервер работает!', 
-    timestamp: new Date(),
-    endpoints: [
-      '/api/orders',
-      '/api/clients', 
-      '/api/computers',
-      '/api/employees',
-      '/api/services',
-      '/api/products',
-      '/api/stats'
-    ]
+app.get('/api/debug/columns/:table', (req, res) => {
+  const { table } = req.params;
+  const dbTable = getTableName(table);
+  
+  db.all(`PRAGMA table_info(${dbTable})`, [], (err, columns) => {
+    if (err) {
+      res.status(400).json({ error: err.message });
+    } else {
+      res.json({ 
+        table: dbTable,
+        columns: columns.map(col => col.name)
+      });
+    }
   });
+});
+
+// Обработка CORS preflight запросов
+app.options('/api/:table', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+  res.sendStatus(200);
+});
+
+app.options('/api/:table/:id', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+  res.sendStatus(200);
 });
 
 // Запуск сервера
 app.listen(PORT, () => {
   console.log(`🚀 Сервер запущен на http://localhost:${PORT}`);
-  console.log(`📡 Доступные endpoints:`);
-  console.log(`   http://localhost:${PORT}/api/orders`);
-  console.log(`   http://localhost:${PORT}/api/clients`);
-  console.log(`   http://localhost:${PORT}/api/computers`);
-  console.log(`   http://localhost:${PORT}/api/employees`);
-  console.log(`   http://localhost:${PORT}/api/services`);
-  console.log(`   http://localhost:${PORT}/api/products`);
-  console.log(`   http://localhost:${PORT}/api/stats`);
-  console.log(`   http://localhost:${PORT}/api/test`);
+  console.log(`📊 Доступные маршруты:`);
+  console.log(`   GET  /api/orders     - Получить все заказы`);
+  console.log(`   GET  /api/clients    - Получить всех клиентов`);
+  console.log(`   GET  /api/computers  - Получить все компьютеры`);
+  console.log(`   GET  /api/employees  - Получить всех сотрудников`);
+  console.log(`   GET  /api/services   - Получить все услуги`);
+  console.log(`   GET  /api/products   - Получить все товары`);
+  console.log(`   POST /api/:table     - Добавить запись`);
+  console.log(`   PUT  /api/:table/:id - Обновить запись`);
+  console.log(`   DELETE /api/:table/:id - Удалить запись`);
+  console.log(`   GET  /api/debug      - Проверить работу сервера`);
+  console.log(`   GET  /api/debug/tables - Показать структуру таблиц`);
 });
